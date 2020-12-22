@@ -2,6 +2,8 @@ import logging
 import scrapy
 import os
 from scrapy import Spider
+from vandenborre.items import Manual
+
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +11,7 @@ class VandenBorreSpider(Spider):
     name = "vandenborre.be"
     start_urls = [
         "https://www.vandenborre.be/sitemap/nl/default/",
-        # "https://www.vandenborre.be/sitemap/fr/default/",
+        "https://www.vandenborre.be/sitemap/fr/default/",
         ]
     
     def parse(self, response):
@@ -30,28 +32,25 @@ class VandenBorreSpider(Spider):
 
     def get_product_data(self, response):
         pdf_files = response.css('.js-specs-doc.clearfix .doc-link.flex div>a::attr(href)').extract()
-        # if len(pdf_files):
-        #     return
+        if len(pdf_files) == 0:
+            return
         for pdf in pdf_files:
             pdf = pdf.replace(' ', '%20') # removing spaces from the pdf link
+            manual = Manual()
+            bread_crums = response.css('.breadcrumbs.js-breadcrumbs.hidden-print.w-100 .row .col-xs-12 ul>li')
+            manual["product"] = bread_crums[-2].css('.js-ellipsis *::text').extract_first()
             brand = response.css('.product-detail-title.no-margin-btm a *::text').extract_first()
-            print(brand, '---------------')
+            manual["brand"] = brand.strip()
             thumb = response.css('.image-gallery-main-image.js-image-gallery-main-image.js-image-zoom-image.image-gallery-main-image-0::attr(data-large-image)').extract_first()
-            thumb = response.urljoin(thumb)
-            
-
-        # manual = Manual()
-        # product_title = response.css('.product_title.entry-title::text').get().strip()
-        # manual['brand'] = self.find_product_brand(product_title)
-        # manual['model'] = self.find_product_model(manual['brand'], product_title)
-        # manual['product'] = self.find_product_name(manual['brand'], manual['model'],product_title)
-        
-        # manual['source'] = self.name
-        # manual['file_urls'] = [response.urljoin(file)]
-        # manual['type'] = self.get_manual_type(response)
-        # manual['thumb'] = 'https:'+ response.css('.op_0.attachment-shop_single.size-shop_single.sp-post-image::attr(data-large_image)').extract()[0]
-        # manual['url'] = response.urljoin('')  
-        # # manual['files'] = []
-        # print(manual)
-        # yield manual
-
+            manual["thumb"] = response.urljoin(thumb)
+            # nested_fonts = response.css('.product-detail-title.no-margin-btm::text').extract_first()
+            # model = nested_fonts.css('font ::text').extract_first()
+            model = response.css('.product-detail-title.no-margin-btm::text').extract_first()
+            manual["model"] = model
+            # manual["model"] = model.strip()
+            manual["source"] = self.name
+            manual["file_urls"] = [response.urljoin(pdf)]
+            manual["url"] = response.urljoin('')
+            manual["type"] = response.css('.js-specs-doc.clearfix .doc-link.flex div>a *::text').extract_first()
+            print(manual)
+            yield manual
